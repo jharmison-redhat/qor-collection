@@ -1,0 +1,5 @@
+---
+collections:
+  - name: jharmison.crypto_qor
+    type: dir
+    source: ../../

@@ -1,0 +1,8 @@
+.venv
+.tox
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info
+collections/
+complexity/
