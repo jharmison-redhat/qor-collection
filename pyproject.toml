@@ -23,3 +23,6 @@ known_ansible_core = ["ansible"]
 known_ansible_jharmison_crypto_qor = [
   "ansible_collections.jharmison.crypto_qor",
 ]
+
+[tool.pytest.ini_options]
+log_cli = true

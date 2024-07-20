@@ -41,6 +41,11 @@ class PQCAlgo(StrEnum):
     MCE8 = "mce8"
 
 
+class Scheme(StrEnum):
+    HTTP = "http"
+    HTTPS = "https"
+
+
 class IPvAnySocketPair(str):
     ip: str
     port: int
