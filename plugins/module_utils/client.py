@@ -35,19 +35,19 @@ class QorApiClient(object):
             self._session.close()
             self._session = None
 
-    def _http_method(self, endpoint: str = "", http_method: str = "get") -> dict:
+    def _http_method(self, endpoint: str = "", http_method: str = "get") -> requests.Response:
         endpoint = endpoint.lstrip("/")
         url = f"{self.scheme}://{self.endpoint}/{endpoint}"
         method = getattr(self.session, http_method)
         try:
-            resp = method(url).json()
-            self.logger.debug(f"{http_method.upper()}: [{url}]: {resp}")
+            resp = method(url)
+            self.logger.debug(f"{http_method.upper()}: [{url}]: {resp.json()}")
         except Exception:
             self.logger.debug(f"{http_method.upper()}: [{url}]: <FAIL>")
             raise
         return resp
 
-    def get(self, endpoint: str = "") -> dict:
+    def get(self, endpoint: str = "") -> requests.Response:
         return self._http_method(endpoint)
 
     def is_healthy(self) -> bool:
@@ -60,4 +60,4 @@ class QorApiClient(object):
             return False
 
     def status(self) -> Any:
-        return self.get("/status")
+        return self.get("/status").json()
