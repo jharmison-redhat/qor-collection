@@ -1,5 +1,9 @@
 from typing import Any
+from typing import Dict
+from typing import List
 from typing import Optional
+from typing import Tuple
+from typing import Union
 
 import requests
 
@@ -9,9 +13,16 @@ from ansible_collections.jharmison.crypto_qor.plugins.module_utils.models import
 from ansible_collections.jharmison.crypto_qor.plugins.module_utils.models import Scheme
 
 
+class QorApiError(Exception):
+    pass
+
+
 class QorApiClient(object):
     def __init__(self, endpoint: IPvAnySocketPair, scheme: Scheme = "http") -> None:
-        self.endpoint: IPvAnySocketPair = endpoint
+        if isinstance(endpoint, IPvAnySocketPair):
+            self.endpoint = endpoint
+        else:
+            self.endpoint = IPvAnySocketPair.validate(endpoint)
         self.scheme = scheme
         self._session: Optional[requests.Session] = None
         self.logger = make_logger()
@@ -35,24 +46,41 @@ class QorApiClient(object):
             self._session.close()
             self._session = None
 
-    def _http_method(self, endpoint: str = "", http_method: str = "get") -> requests.Response:
+    def _http_method(
+        self, endpoint: str = "", http_method: str = "get", data: Optional[dict] = None
+    ) -> Tuple[requests.Response, Union[Dict, List]]:
         endpoint = endpoint.lstrip("/")
         url = f"{self.scheme}://{self.endpoint}/{endpoint}"
         method = getattr(self.session, http_method)
         try:
-            resp = method(url)
-            self.logger.debug(f"{http_method.upper()}: [{url}]: {resp.json()}")
+            if data is not None:
+                if http_method == "post":
+                    resp = method(url, json=data)
+                else:
+                    resp = method(url, data=data)
+            else:
+                resp = method(url)
         except Exception:
             self.logger.debug(f"{http_method.upper()}: [{url}]: <FAIL>")
             raise
-        return resp
+        try:
+            _json = resp.json()
+        except requests.exceptions.JSONDecodeError:
+            _json = {}
+        self.logger.debug(
+            f"{http_method.upper()}: [{url}]" + f" (data={data})" if data is not None else "" + f": {_json}"
+        )
+        return (resp, _json)
 
-    def get(self, endpoint: str = "") -> requests.Response:
+    def _get(self, endpoint: str = "", data: Optional[dict] = None) -> Tuple[requests.Response, Union[Dict, List]]:
         return self._http_method(endpoint)
+
+    def _post(self, endpoint: str = "", data: Optional[dict] = None) -> Tuple[requests.Response, Union[Dict, List]]:
+        return self._http_method(endpoint, http_method="post", data=data)
 
     def is_healthy(self) -> bool:
         try:
-            _ = self.get("")
+            _ = self._get("")
             self.logger.debug("Healthy client")
             return True
         except Exception:  # noqa: E722
@@ -60,4 +88,28 @@ class QorApiClient(object):
             return False
 
     def status(self) -> Any:
-        return self.get("/status").json()
+        return self._get("/status")[1]
+
+    def progress(self) -> Any:
+        try:
+            return self._get("/progress")[1]
+        except requests.exceptions.JSONDecodeError:
+            self.logger.debug("Returning empty response")
+            return {}
+
+    def progress_step(self) -> Any:
+        return self._get("/progress-step")[1]
+
+    def create_endpoint(self, endpoint: Union[QorEndpoint, Dict[Any, Any]]) -> Any:
+        if isinstance(endpoint, QorEndpoint):
+            data = endpoint.json  # type: ignore
+        else:
+            data = QorEndpoint(**endpoint).json
+        resp, json = self._post("/endpoints", data=data)
+        if resp.status_code == 201:
+            return json
+        raise QorApiError(resp.text)
+
+    def reset(self) -> Any:
+        _ = self._get("/progress-step", data={"reset": "true"})
+        _ = self._get("/progress", data={"clear": "true"})

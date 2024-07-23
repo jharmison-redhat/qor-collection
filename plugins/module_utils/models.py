@@ -1,7 +1,8 @@
 import re
 from enum import Enum
+from typing import Any
+from typing import Dict
 from typing import Optional
-from typing import Tuple
 
 from pydantic import BaseModel
 from pydantic import IPvAnyAddress
@@ -96,3 +97,10 @@ class QorEndpoint(BaseModel):
     local_wg_ipport: IPvAnySocketPair
     remote_wg_ipport: IPvAnySocketPair
     pqc: PQCAlgo = PQCAlgo.KYB1024
+
+    def model_dump(self, *args, exclude_none: bool = True, exclude_unset: bool = True, **kwargs) -> Dict[str, Any]:
+        return super().model_dump(*args, exclude_none=exclude_none, exclude_unset=exclude_unset, **kwargs)
+
+    @property
+    def json(self) -> Dict[str, Any]:
+        return self.model_dump(mode="json")
